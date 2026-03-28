@@ -1,0 +1,13 @@
+{
+  "domain": "ruview",
+  "name": "RuView WiFi Sensor",
+  "codeowners": ["@ruvnet"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/ddgsdde/RuView",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/ddgsdde/RuView/issues",
+  "requirements": [],
+  "version": "0.3.0"
+}
