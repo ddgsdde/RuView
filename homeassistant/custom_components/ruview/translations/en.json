@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to RuView Sensing Server",
+        "description": "Enter the address of your RuView sensing server. The server must be running (`sensing-server --http-port 8080`).",
+        "data": {
+          "host": "Host / IP address",
+          "port": "HTTP port",
+          "scan_interval": "Update interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the RuView server. Make sure the server is running and the host/port are correct.",
+      "unknown": "Unexpected error. Check the Home Assistant logs for details."
+    },
+    "abort": {
+      "already_configured": "This RuView server is already configured."
+    }
+  }
+}

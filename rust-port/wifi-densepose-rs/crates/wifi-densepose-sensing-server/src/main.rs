@@ -9,6 +9,7 @@
 //! Replaces both ws_server.py and the Python HTTP server.
 
 mod adaptive_classifier;
+mod mqtt;
 mod rvf_container;
 mod rvf_pipeline;
 mod vital_signs;
@@ -144,6 +145,45 @@ struct Args {
     /// Build fingerprint index from embeddings (env|activity|temporal|person)
     #[arg(long, value_name = "TYPE")]
     build_index: Option<String>,
+
+    // ── Home Assistant / MQTT integration ────────────────────────────────────
+
+    /// MQTT broker hostname or IP address (enables MQTT publisher when set).
+    /// Example: --mqtt-host 192.168.1.5 or --mqtt-host homeassistant.local
+    #[arg(long, value_name = "HOST", env = "MQTT_HOST")]
+    mqtt_host: Option<String>,
+
+    /// MQTT broker port (default 1883).
+    #[arg(long, default_value = "1883", value_name = "PORT", env = "MQTT_PORT")]
+    mqtt_port: u16,
+
+    /// MQTT broker username (optional).
+    #[arg(long, value_name = "USER", env = "MQTT_USERNAME")]
+    mqtt_username: Option<String>,
+
+    /// MQTT broker password (optional).
+    #[arg(long, value_name = "PASS", env = "MQTT_PASSWORD")]
+    mqtt_password: Option<String>,
+
+    /// MQTT topic prefix for state messages (default "ruview").
+    #[arg(long, default_value = "ruview", value_name = "PREFIX", env = "MQTT_TOPIC_PREFIX")]
+    mqtt_topic_prefix: String,
+
+    /// Home Assistant MQTT discovery prefix (default "homeassistant").
+    #[arg(long, default_value = "homeassistant", value_name = "PREFIX", env = "MQTT_DISCOVERY_PREFIX")]
+    mqtt_discovery_prefix: String,
+
+    /// Disable Home Assistant MQTT auto-discovery (discovery is on by default when --mqtt-host is set).
+    #[arg(long)]
+    mqtt_no_discovery: bool,
+
+    /// Unique device ID used in MQTT topics and HA discovery (default "ruview_01").
+    #[arg(long, default_value = "ruview_01", value_name = "ID", env = "MQTT_DEVICE_ID")]
+    mqtt_device_id: String,
+
+    /// Human-readable device name shown in Home Assistant (default "RuView WiFi Sensor").
+    #[arg(long, default_value = "RuView WiFi Sensor", value_name = "NAME", env = "MQTT_DEVICE_NAME")]
+    mqtt_device_name: String,
 }
 
 // ── Data types ───────────────────────────────────────────────────────────────
@@ -3838,6 +3878,11 @@ async fn main() {
     info!("  UDP:       0.0.0.0:{} (ESP32 CSI)", args.udp_port);
     info!("  UI path:   {}", args.ui_path.display());
     info!("  Source:    {}", args.source);
+    if let Some(ref h) = args.mqtt_host {
+        info!("  MQTT:      {}:{} (Home Assistant integration ON)", h, args.mqtt_port);
+    } else {
+        info!("  MQTT:      disabled (use --mqtt-host to enable Home Assistant integration)");
+    }
 
     // Auto-detect data source
     let source = match args.source.as_str() {
@@ -4006,6 +4051,27 @@ async fn main() {
         _ => {
             tokio::spawn(simulated_data_task(state.clone(), args.tick_ms));
         }
+    }
+
+    // ── Home Assistant / MQTT integration ────────────────────────────────────
+    if let Some(ref mqtt_host) = args.mqtt_host {
+        let mqtt_cfg = mqtt::MqttConfig {
+            host: mqtt_host.clone(),
+            port: args.mqtt_port,
+            username: args.mqtt_username.clone(),
+            password: args.mqtt_password.clone(),
+            topic_prefix: args.mqtt_topic_prefix.clone(),
+            discovery_prefix: args.mqtt_discovery_prefix.clone(),
+            ha_discovery: !args.mqtt_no_discovery,
+            device_id: args.mqtt_device_id.clone(),
+            device_name: args.mqtt_device_name.clone(),
+        };
+        let broadcast_rx = state.read().await.tx.subscribe();
+        info!(
+            "MQTT: Home Assistant integration enabled → {}:{}",
+            mqtt_cfg.host, mqtt_cfg.port
+        );
+        tokio::spawn(mqtt::mqtt_bridge_task(mqtt_cfg, broadcast_rx));
     }
 
     // ADR-050: Parse bind address once, use for all listeners
