@@ -19,6 +19,9 @@ firmware/esp32-csi-node/sdkconfig.defaults.bak
 # CSI recordings (local training data, machine-specific)
 rust-port/wifi-densepose-rs/data/recordings/
 
+# Tauri-generated schemas (build artifacts)
+rust-port/wifi-densepose-rs/crates/wifi-densepose-desktop/gen/
+
 # NVS partition images and CSVs (contain WiFi credentials)
 nvs.bin
 nvs_config.csv
